@@ -1,0 +1,40 @@
+name: build-pkg
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependências básicas
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            git make python3 wget curl bzip2 xz-utils
+
+      # TODO: cole aqui o passo de instalação do toolchain do seu workflow
+      # que já funciona (bucanero/ps3toolchain). Sem o toolchain o build falha.
+      - name: Instalar toolchain PS3
+        run: |
+          echo "Substitua este passo pelo do workflow que já funciona"
+          exit 1
+
+      - name: Compilar e montar o pkg
+        env:
+          PS3DEV: /opt/ps3dev
+          PSL1GHT: /opt/ps3dev/PSL1GHT
+          PATH: /opt/ps3dev/bin:/usr/bin:/bin
+        run: make pkg
+
+      - name: Enviar pkg
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobra_arena-pkg
+          path: cobra_arena.pkg
