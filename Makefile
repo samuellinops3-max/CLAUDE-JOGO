@@ -1,33 +1,35 @@
-# Cobra Arena v2 - Makefile (PSL1GHT)
-#
-# Requer o toolchain instalado e as variáveis:
-#   PS3DEV=/opt/ps3dev
-#   PSL1GHT=$(PS3DEV)/PSL1GHT
-#
-# ATENÇÃO: as regras de .self/.pkg abaixo seguem o padrão do PSL1GHT.
-# Se o seu workflow que já funciona usa outros comandos, copie-os para cá.
-
+ifeq ($(strip $(PSL1GHT)),)
+$(error "Defina a variavel PSL1GHT")
+endif
 include $(PSL1GHT)/ppu_rules
 
-TARGET   := cobra_arena
-TITLE    := Cobra Arena
-TITLE_ID := COBRA0001
-CONTENT  := UP0001-COBRA0001_00-COBRAGAMEAPP0001
-PKG_DIR  := pkg
-PKG_OUT  := $(TARGET).pkg
+.DEFAULT_GOAL := all
 
-SOURCES  := .
-INCLUDE  :=
-LIBS     := -lsysutil -lio -lgcm_sys -lsysmodule -lm -lrt -lc
-LIBPATHS :=
+TARGET    := cobra
+TITLE     := Cobra Arena
+APPID     := COBR00001
+CONTENTID := UP0001-$(APPID)_00-0000000000000000
+SFOXML    := sfo.xml
+PORTLIBS  := $(PS3DEV)/portlibs/ppu
 
-.PHONY: pkg
+MACHDEP := -mhard-float -fmodulo-sched -ffunction-sections -fdata-sections
+CFLAGS  := -O2 -Wall -mcpu=cell $(MACHDEP) -I$(PSL1GHT)/ppu/include -I$(PORTLIBS)/include
+LDFLAGS := $(MACHDEP) -L$(PSL1GHT)/ppu/lib -L$(PORTLIBS)/lib
+LIBS    := -lrsx -lgcm_sys -lio -lsysutil -lrt -llv2 -lm
 
-# gera o .self (EBOOT.BIN) pela regra padrão do ppu_rules
-pkg: $(TARGET).self
-	mkdir -p $(PKG_DIR)/USRDIR
-	cp $(TARGET).self $(PKG_DIR)/USRDIR/EBOOT.BIN
-	python3 tools/make_sfo.py $(PKG_DIR)/PARAM.SFO "$(TITLE)" $(TITLE_ID) $(CONTENT) 01.00
-	python3 tools/make_icon.py $(PKG_DIR)/ICON0.PNG
-	pkg.py --contentid $(CONTENT) $(PKG_DIR) $(PKG_OUT)
-	@echo "Pronto: $(PKG_OUT)"
+all: $(TARGET).pkg
+
+main.o: main.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TARGET).elf: main.o
+	$(CC) $(LDFLAGS) -o $@ $< $(LIBS)
+
+$(TARGET).pkg: $(TARGET).elf ICON0.PNG $(SFOXML)
+	rm -rf pkg
+	mkdir -p pkg/USRDIR
+	cp ICON0.PNG pkg/ICON0.PNG
+	$(PS3DEV)/bin/sprxlinker $(TARGET).elf
+	$(PS3DEV)/bin/make_self_npdrm $(TARGET).elf pkg/USRDIR/EBOOT.BIN $(CONTENTID)
+	$(PS3DEV)/bin/sfo.py --title "$(TITLE)" --appid "$(APPID)" -f $(SFOXML) pkg/PARAM.SFO
+	$(PS3DEV)/bin/pkg.py --contentid $(CONTENTID) pkg/
